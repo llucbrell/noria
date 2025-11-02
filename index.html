@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Citas - Terapia Ocupacional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Font Awesome Free CDN -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        .celda-hora.completada {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .celda-hora.proxima {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .log-container {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .log-entry {
+            padding: 4px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .log-info { color: #3b82f6; }
+        .log-success { color: #10b981; }
+        .log-error { color: #ef4444; }
+        .log-warning { color: #f59e0b; }
+        .schedule-table { margin-bottom: 3%;}
+
+    </style>
+</head>
+
+<body class="min-h-screen p-4">
+
+<header class="bg-blue-700 shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            
+            <a href="#" class="flex items-center space-x-2 text-white text-xl font-bold">
+                <svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Noria</span>
+            </a>
+
+            <div class="flex space-x-2 sm:space-x-4">
+                <button onclick="cambiarTab('citas')" data-tab="citas" 
+                        class="tab px-3 py-2 font-semibold text-white transition border-b-4 border-transparent hover:border-white">
+                  
+<i class="fa fa-calendar"></i> Cit.
+                </button>
+                <button onclick="cambiarTab('pacientes')" data-tab="pacientes" 
+                        class="tab px-3 py-2 font-semibold text-blue-300 transition border-b-4 border-transparent hover:border-white">
+
+<i class="fa fa-users"></i> Pac.
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+   <div class="max-w-7xl mx-auto bg-white  p-4 md:p-8">
+    
+        <!-- FECHA HOY -->
+        <p class="text-gray-600 mb-6" id="fechaHoy">
+
+        <!-- PERMISOS NOTIFICACIÓN -->
+        <div id="permisosNotificacion" class="hidden bg-yellow-50 border-2 border-yellow-400 rounded-xl p-4 mb-4">
+            <p class="font-bold text-yellow-900 mb-2">⚠️ Notificaciones desactivadas</p>
+            <p class="text-yellow-800 text-sm mb-3">Para recibir alarmas, activa las notificaciones.</p>
+            <button onclick="solicitarPermisoNotificaciones()" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg w-full">
+                Activar Notificaciones
+            </button>
+        </div>
+
+        <!-- BOTÓN DE PRUEBA -->
+        <div id="botonPrueba" class="hidden bg-green-50 border-2 border-green-400 rounded-xl p-4 mb-4">
+            <p class="font-bold text-green-900 mb-2"> Notificaciones activadas</p>
+
+        <!-- 
+            <button onclick="probarNotificacion()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full">
+                🔔 Probar Notificación Ahora
+            </button>
+BOTÓN DE PRUEBA -->
+        </div>
+
+
+        <!-- 
+        <div class="bg-gray-50 border-2 border-gray-300 rounded-xl p-4 mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-bold text-gray-700">🐛 Logs del Sistema</h3>
+                <button onclick="limpiarLogs()" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded">Limpiar</button>
+            </div>
+            <div id="logsContainer" class="log-container bg-white border border-gray-200 rounded p-2"></div>
+        </div>
+LOGS DE DEBUG -->
+        <!-- 
+        <div class="flex gap-2 mb-4 border-b-2 border-gray-200 overflow-x-auto">
+            <button onclick="cambiarTab('citas')" class="tab px-4 md:px-6 py-3 font-semibold text-gray-600 border-b-4 border-transparent hover:text-indigo-600 transition whitespace-nowrap" data-tab="citas">
+                📅 Citas de Hoy
+            </button>
+            <button onclick="cambiarTab('pacientes')" class="tab px-4 md:px-6 py-3 font-semibold text-gray-600 border-b-4 border-transparent hover:text-indigo-600 transition whitespace-nowrap" data-tab="pacientes">
+                👥 Gestionar Pacientes
+            </button>
+        </div>
+TABS -->
+        <!-- TAB CITAS -->
+        <div id="tab-citas" class="tab-content">
+
+            <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Tabla de Citas</h2>
+            <div class="overflow-x-auto rounded-xl border-2 border-gray-200 schedule-table">
+                <table class="w-full" id="tablaCitas">
+                    <thead class="bg-indigo-600 text-white">
+                        <tr>
+                            <th class="p-3 text-left text-xs md:text-sm font-semibold">Paciente</th>
+                            <th class="p-3 text-center text-xs md:text-sm font-semibold">T.O.</th>
+                            <th class="p-3 text-center text-xs md:text-sm font-semibold">Gym</th>
+                            <th class="p-3 text-center text-xs md:text-sm font-semibold">Pisc.</th>
+                            <th class="p-3 text-center text-xs md:text-sm font-semibold">Logo</th>
+                            <th class="p-3 text-center text-xs md:text-sm font-semibold">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaCitasBody"></tbody>
+                </table>
+            </div>
+
+
+            <div class="bg-gray-50 rounded-xl p-4 md:p-6 mb-6">
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Nueva Cita</h2>
+                <form id="formCita" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Paciente</label>
+                        <select id="pacienteSelect" required class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-base">
+                            <option value="">Selecciona un paciente...</option>
+                        </select>
+                    </div>
+
+                    <div id="nuevoPacienteGroup" class="hidden bg-indigo-50 p-3 rounded-lg">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre del nuevo paciente</label>
+                        <input type="text" id="nombreNuevoPaciente" placeholder="Ej: María García" class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                    </div>
+
+                    <h3 class="text-base md:text-lg font-semibold text-gray-800 mt-4">Selecciona las terapias y horarios:</h3>
+                    
+                    <div id="terapiasCheckbox" class="space-y-3"></div>
+
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition">
+                        ➕ Añadir Cita(s)
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- TAB PACIENTES -->
+        <div id="tab-pacientes" class="tab-content hidden">
+            <div class="bg-gray-50 rounded-xl p-4 md:p-6 mb-6">
+                <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Añadir Paciente</h2>
+                <form id="formPaciente" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre del Paciente</label>
+                        <input type="text" id="nombrePaciente" required placeholder="Ej: Juan Pérez" class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition">
+                        ➕ Añadir Paciente
+                    </button>
+                </form>
+            </div>
+
+            <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4">Lista de Pacientes</h2>
+            <div id="listaPacientes" class="flex flex-wrap gap-2"></div>
+        </div>
+    </div>
+
+    <script>
+        // Constantes
+        const STORAGE_CITAS = 'citas_terapia';
+        const STORAGE_PACIENTES = 'pacientes_terapia';
+        const TIPOS_TERAPIA = ['Terapia Ocupacional', 'Gimnasio', 'Piscina', 'Logopeda' ];
+        
+        let citas = [];
+        let pacientes = [];
+        let serviceWorkerRegistration = null;
+
+        // Sistema de logs
+        function log(mensaje, tipo = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const container = document.getElementById('logsContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${tipo}`;
+            entry.textContent = `[${timestamp}] ${mensaje}`;
+            //container.appendChild(entry);
+            console.log(entry);
+            //container.scrollTop = container.scrollHeight;
+            //console.log(`[${tipo.toUpperCase()}]`, mensaje);
+        }
+
+        function limpiarLogs() {
+            document.getElementById('logsContainer').innerHTML = '';
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', async () => {
+            log('Iniciando aplicación...', 'info');
+            cargarDatos();
+            mostrarFechaHoy();
+            await inicializarServiceWorker();
+            verificarPermisoNotificaciones();
+            iniciarMonitoreoNotificaciones();
+            actualizarSelectPacientes();
+            renderizarTablaCitas();
+            renderizarListaPacientes();
+            renderizarCheckboxesTerapias();
+            log('Aplicación iniciada correctamente', 'success');
+        });
+
+        // Inicializar Service Worker
+        async function inicializarServiceWorker() {
+            if (!('serviceWorker' in navigator)) {
+                log('Service Worker NO soportado en este navegador', 'error');
+                return;
+            }
+
+            try {
+                // Crear Service Worker inline
+                const swCode = `
+                    self.addEventListener('notificationclick', (event) => {
+                        event.notification.close();
+                        event.waitUntil(
+                            clients.openWindow('/')
+                        );
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                serviceWorkerRegistration = await navigator.serviceWorker.register(swUrl);
+                log('Service Worker registrado correctamente', 'success');
+            } catch (error) {
+                log('Error registrando Service Worker: ' + error.message, 'error');
+            }
+        }
+
+        function mostrarFechaHoy() {
+            const hoy = new Date();
+            const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('fechaHoy').textContent = 
+                ' ' + hoy.toLocaleDateString('es-ES', opciones);
+        }
+
+
+function cargarDatos() {
+    // Cargar pacientes
+    const pacientesGuardados = localStorage.getItem(STORAGE_PACIENTES);
+    if (pacientesGuardados) {
+        pacientes = JSON.parse(pacientesGuardados);
+        log(`Cargados ${pacientes.length} pacientes`, 'info');
+    }
+
+    // Cargar citas
+    const citasGuardadas = localStorage.getItem(STORAGE_CITAS);
+    if (citasGuardadas) {
+        citas = JSON.parse(citasGuardadas);
+        const hoy = new Date().toDateString();
+
+        // Reactivar citas si son de días anteriores
+        citas.forEach(cita => {
+            const fechaCita = new Date(cita.fecha).toDateString();
+            if (fechaCita !== hoy) {
+                cita.completada = false;            // marcar como no realizada
+                cita.notificada = false;             // limpiar notificación
+                cita.notificadaSegundaVez = false;   // limpiar segunda notificación
+                cita.fecha = new Date().toISOString(); // actualizar fecha a hoy
+            }
+        });
+
+        guardarCitas();
+        log(`Cargadas ${citas.length} citas (reiniciadas para hoy)`, 'info');
+    }
+}
+        /*
+        function cargarDatos() {
+            const pacientesGuardados = localStorage.getItem(STORAGE_PACIENTES);
+            if (pacientesGuardados) {
+                pacientes = JSON.parse(pacientesGuardados);
+                log(`Cargados ${pacientes.length} pacientes`, 'info');
+            }
+
+            const citasGuardadas = localStorage.getItem(STORAGE_CITAS);
+            if (citasGuardadas) {
+                citas = JSON.parse(citasGuardadas);
+                const hoy = new Date().toDateString();
+                citas = citas.filter(cita => {
+                    const fechaCita = new Date(cita.fecha).toDateString();
+                    return fechaCita === hoy;
+                });
+                guardarCitas();
+                log(`Cargadas ${citas.length} citas de hoy`, 'info');
+            }
+        }
+        */
+
+        function guardarCitas() {
+            localStorage.setItem(STORAGE_CITAS, JSON.stringify(citas));
+        }
+
+        function guardarPacientes() {
+            localStorage.setItem(STORAGE_PACIENTES, JSON.stringify(pacientes));
+        }
+
+
+
+        function verificarPermisoNotificaciones() {
+            log('Verificando permisos de notificación...', 'info');
+            
+            if (!("Notification" in window)) {
+                log('Las notificaciones NO están soportadas', 'error');
+                document.getElementById('permisosNotificacion').innerHTML = 
+                    '<p class="font-bold text-red-900">❌ Este navegador NO soporta notificaciones</p>';
+                document.getElementById('permisosNotificacion').classList.remove('hidden');
+                return;
+            }
+
+            log(`Estado de permisos: ${Notification.permission}`, 'info');
+
+            if (Notification.permission === "default") {
+                document.getElementById('permisosNotificacion').classList.remove('hidden');
+            } else if (Notification.permission === "denied") {
+                log('Notificaciones bloqueadas por el usuario', 'error');
+                document.getElementById('permisosNotificacion').classList.remove('hidden');
+                document.getElementById('permisosNotificacion').innerHTML = 
+                    '<p class="font-bold text-red-900 mb-2">❌ Notificaciones bloqueadas</p>' +
+                    '<p class="text-red-800 text-sm">Ve a la configuración del navegador para activarlas.</p>';
+            } else if (Notification.permission === "granted") {
+                log('Notificaciones permitidas ✓', 'success');
+                document.getElementById('botonPrueba').classList.remove('hidden');
+            }
+        }
+
+        async function solicitarPermisoNotificaciones() {
+            log('Solicitando permiso para notificaciones...', 'info');
+            
+            try {
+                const permission = await Notification.requestPermission();
+                log(`Resultado: ${permission}`, permission === 'granted' ? 'success' : 'warning');
+                
+                if (permission === "granted") {
+                    document.getElementById('permisosNotificacion').classList.add('hidden');
+                    document.getElementById('botonPrueba').classList.remove('hidden');
+                    await probarNotificacion();
+                }
+            } catch (error) {
+                log('Error al solicitar permisos: ' + error.message, 'error');
+            }
+        }
+
+        async function probarNotificacion() {
+            log('Probando notificación...', 'info');
+            await enviarNotificacion(
+                { id: 'test', nombre: 'Prueba', tipo: 'Test', hora: '00:00' },
+                '🔔 Notificación de Prueba',
+                'Si ves esto, las notificaciones funcionan correctamente'
+            );
+        }
+
+        // Tabs
+/*
+        function cambiarTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => {
+                t.classList.remove('border-indigo-600', 'text-indigo-600');
+                t.classList.add('border-transparent', 'text-gray-600');
+            });
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            
+            const tabBtn = document.querySelector(`[data-tab="${tab}"]`);
+            tabBtn.classList.remove('border-transparent', 'text-gray-600');
+            tabBtn.classList.add('border-indigo-600', 'text-indigo-600');
+            
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+        }
+        */
+// Tabs
+function cambiarTab(tab) {
+    // 1. Desactivar todos los botones de la navbar (quitar borde blanco/texto brillante)
+    document.querySelectorAll('.tab').forEach(t => {
+        t.classList.remove('border-white', 'text-white', 'text-blue-300');
+        t.classList.add('border-transparent', 'text-blue-300', 'hover:text-white'); // Usar text-blue-300 para el estado inactivo
+    });
+    
+    // 2. Ocultar todos los contenidos
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+    
+    // 3. Activar el botón de la navbar seleccionado
+    const tabBtn = document.querySelector(`[data-tab="${tab}"]`);
+    if (tabBtn) {
+        tabBtn.classList.remove('border-transparent', 'text-blue-300', 'hover:text-white');
+        tabBtn.classList.add('border-white', 'text-white');
+    }
+
+    // 4. Mostrar el contenido de la tab
+    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+
+    // Opcional: Esto asegura que el botón "Citas de Hoy" esté activo al inicio
+    localStorage.setItem('activeTab', tab); 
+}
+
+// Llama a la función al cargar la página para establecer el estado inicial
+document.addEventListener('DOMContentLoaded', () => {
+    // ... el resto de tu código de inicialización ...
+    const initialTab = localStorage.getItem('activeTab') || 'citas';
+    cambiarTab(initialTab); // Aseguramos que la tab correcta esté activa
+});
+
+        // Formulario pacientes
+        document.getElementById('formPaciente').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('nombrePaciente').value.trim();
+            
+            if (pacientes.includes(nombre)) {
+                alert('Este paciente ya existe');
+                return;
+            }
+
+            pacientes.push(nombre);
+            guardarPacientes();
+            actualizarSelectPacientes();
+            renderizarListaPacientes();
+            e.target.reset();
+            log(`Paciente añadido: ${nombre}`, 'success');
+        });
+
+        function actualizarSelectPacientes() {
+            const select = document.getElementById('pacienteSelect');
+            select.innerHTML = '<option value="">Selecciona un paciente...</option>';
+           // select.innerHTML += '<option value="__nuevo__">➕ Nuevo paciente...</option>';
+            
+            pacientes.sort().forEach(paciente => {
+                select.innerHTML += `<option value="${paciente}">${paciente}</option>`;
+            });
+        }
+
+        document.getElementById('pacienteSelect').addEventListener('change', (e) => {
+            const nuevoGrupo = document.getElementById('nuevoPacienteGroup');
+            if (e.target.value === '__nuevo__') {
+                nuevoGrupo.classList.remove('hidden');
+                document.getElementById('nombreNuevoPaciente').required = true;
+            } else {
+                nuevoGrupo.classList.add('hidden');
+                document.getElementById('nombreNuevoPaciente').required = false;
+            }
+        });
+
+        function renderizarCheckboxesTerapias() {
+            const container = document.getElementById('terapiasCheckbox');
+            container.innerHTML = TIPOS_TERAPIA.map((tipo, idx) => {
+                const id = `terapia_${idx}`;
+                return `
+                    <div class="bg-white border-2 border-gray-200 rounded-lg p-3">
+                        <div class="flex items-center gap-3 mb-2">
+                            <input type="checkbox" id="${id}" value="${tipo}" class="w-5 h-5 text-indigo-600">
+                            <label for="${id}" class="font-medium text-gray-700 flex-1">${tipo}</label>
+                        </div>
+                        <input type="time" id="time_${id}" class="hidden w-full p-2 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none">
+                    </div>
+                `;
+            }).join('');
+
+            TIPOS_TERAPIA.forEach((tipo, idx) => {
+                const id = `terapia_${idx}`;
+                const checkbox = document.getElementById(id);
+                const timeInput = document.getElementById(`time_${id}`);
+                
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        timeInput.classList.remove('hidden');
+                        timeInput.required = true;
+                    } else {
+                        timeInput.classList.add('hidden');
+                        timeInput.required = false;
+                    }
+                });
+            });
+        }
+
+        // Formulario citas
+        document.getElementById('formCita').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            let nombrePaciente = document.getElementById('pacienteSelect').value;
+            
+            if (nombrePaciente === '__nuevo__') {
+                nombrePaciente = document.getElementById('nombreNuevoPaciente').value.trim();
+                if (!pacientes.includes(nombrePaciente)) {
+                    pacientes.push(nombrePaciente);
+                    guardarPacientes();
+                    actualizarSelectPacientes();
+                    renderizarListaPacientes();
+                }
+            }
+
+            let citasAñadidas = 0;
+            TIPOS_TERAPIA.forEach((tipo, idx) => {
+                const checkbox = document.getElementById(`terapia_${idx}`);
+                if (checkbox.checked) {
+                    const hora = document.getElementById(`time_terapia_${idx}`).value;
+                    
+                    const nuevaCita = {
+                        id: Date.now() + Math.random(),
+                        nombre: nombrePaciente,
+                        tipo: tipo,
+                        hora: hora,
+                        fecha: new Date().toISOString(),
+                        completada: false,
+                        notificada: false,
+                        notificadaSegundaVez: false
+                    };
+
+                    citas.push(nuevaCita);
+                    citasAñadidas++;
+                }
+            });
+
+            if (citasAñadidas === 0) {
+                alert('Debes seleccionar al menos una terapia');
+                return;
+            }
+
+            guardarCitas();
+            renderizarTablaCitas();
+            e.target.reset();
+            document.getElementById('nuevoPacienteGroup').classList.add('hidden');
+            log(`${citasAñadidas} cita(s) añadida(s) para ${nombrePaciente}`, 'success');
+        });
+
+        function renderizarTablaCitas() {
+            const tbody = document.getElementById('tablaCitasBody');
+            
+            if (citas.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="p-8 text-center text-gray-500">
+                            <div class="text-4xl mb-2">📅</div>
+                            <p>No hay citas para hoy</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const citasPorPaciente = {};
+            citas.forEach(cita => {
+                if (!citasPorPaciente[cita.nombre]) {
+                    citasPorPaciente[cita.nombre] = {};
+                }
+                citasPorPaciente[cita.nombre][cita.tipo] = cita;
+            });
+
+            tbody.innerHTML = Object.keys(citasPorPaciente).sort().map(nombrePaciente => {
+                const citasPaciente = citasPorPaciente[nombrePaciente];
+                
+                return `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-3 font-bold text-gray-800 text-sm md:text-base">${nombrePaciente}</td>
+                        ${TIPOS_TERAPIA.map(tipo => {
+                            const cita = citasPaciente[tipo];
+                            if (!cita) {
+                                return '<td class="p-3 text-center text-gray-300 text-sm">-</td>';
+                            }
+
+                            const ahora = new Date();
+                            const [horasCita, minutosCita] = cita.hora.split(':');
+                            const horaCita = new Date();
+                            horaCita.setHours(parseInt(horasCita), parseInt(minutosCita), 0);
+                            const minutosHastaCita = Math.floor((horaCita - ahora) / 60000);
+
+                            let clases = 'p-3 text-center font-bold cursor-pointer text-sm md:text-base celda-hora';
+                            let colorClases = 'text-indigo-600';
+                            
+                            if (cita.completada) {
+                                clases += ' completada';
+                                colorClases = 'text-green-600';
+                            } else if (minutosHastaCita <= 5 && minutosHastaCita >= 0) {
+                                clases += ' proxima';
+                                colorClases = 'text-red-600 bg-red-50';
+                            }
+
+                            return `<td class="${clases} ${colorClases}" onclick="completarCita('${nombrePaciente}', '${tipo}', '${cita.hora}')" title="Click para marcar como completada">${cita.hora}</td>`;
+                        }).join('')}
+                        <td class="p-3">
+                            <div class="flex flex-col gap-1">
+                                <button onclick="completarTodasCitasPaciente('${nombrePaciente}')" class="bg-green-500 hover:bg-green-600 text-white text-xs py-1 px-2 rounded">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                                <button onclick="eliminarTodasCitasPaciente('${nombrePaciente}')" class="bg-red-500 hover:bg-red-600 text-white text-xs py-1 px-2 rounded">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function completarCita(nombre, tipo, hora) {
+            const cita = citas.find(c => c.nombre === nombre && c.tipo === tipo && c.hora === hora);
+            if (cita) {
+                cita.completada = true;
+                guardarCitas();
+                renderizarTablaCitas();
+                log(`Cita completada: ${nombre} - ${tipo}`, 'success');
+            }
+        }
+
+        function completarTodasCitasPaciente(nombre) {
+            citas.forEach(cita => {
+                if (cita.nombre === nombre) {
+                    cita.completada = true;
+                }
+            });
+            guardarCitas();
+            renderizarTablaCitas();
+            log(`Todas las citas completadas para: ${nombre}`, 'success');
+        }
+
+        function eliminarTodasCitasPaciente(nombre) {
+            if (confirm(`¿Eliminar todas las citas de ${nombre}?`)) {
+                citas = citas.filter(c => c.nombre !== nombre);
+                guardarCitas();
+                renderizarTablaCitas();
+                log(`Citas eliminadas para: ${nombre}`, 'warning');
+            }
+        }
+
+        function renderizarListaPacientes() {
+            const lista = document.getElementById('listaPacientes');
+            
+            if (pacientes.length === 0) {
+                lista.innerHTML = '<div class="w-full text-center text-gray-500 py-8">No hay pacientes registrados</div>';
+                return;
+            }
+
+            lista.innerHTML = pacientes.sort().map(paciente => `
+                <div class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full font-semibold flex items-center gap-2 text-sm">
+                    ${paciente}
+                    <button onclick="eliminarPaciente('${paciente}')" class="bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                        ×
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function eliminarPaciente(nombre) {
+            if (confirm(`¿Eliminar el paciente ${nombre}?`)) {
+                pacientes = pacientes.filter(p => p !== nombre);
+                guardarPacientes();
+                actualizarSelectPacientes();
+                renderizarListaPacientes();
+                log(`Paciente eliminado: ${nombre}`, 'warning');
+            }
+        }
+
+        // Sistema de notificaciones
+        function iniciarMonitoreoNotificaciones() {
+            setInterval(() => {
+                verificarNotificaciones();
+            }, 10000);
+            verificarNotificaciones();
+        }
+
+        async function verificarNotificaciones() {
+            if (Notification.permission !== "granted") return;
+
+            const ahora = new Date();
+
+            for (const cita of citas) {
+                if (cita.completada) continue;
+
+                const [horasCita, minutosCita] = cita.hora.split(':');
+                const horaCita = new Date();
+                horaCita.setHours(parseInt(horasCita), parseInt(minutosCita), 0);
+
+                const minutosHastaCita = Math.floor((horaCita - ahora) / 60000);
+
+                if (minutosHastaCita >= 4 && minutosHastaCita <= 5 && !cita.notificada) {
+                    log(`ALERTA: Cita en 5 min - ${cita.nombre} (${cita.tipo})`, 'warning');
+                    await enviarNotificacion(cita, '🔔 Cita en 5 minutos', 
+                        `${cita.nombre} - ${cita.tipo} a las ${cita.hora}`);
+                    cita.notificada = true;
+                    guardarCitas();
+                }
+
+                const minutosDesdeHora = Math.floor((ahora - horaCita) / 60000);
+                if (minutosDesdeHora >= 10 && minutosDesdeHora <= 11 && !cita.completada && !cita.notificadaSegundaVez) {
+                    log(`RECORDATORIO: ${cita.nombre} (${cita.tipo}) - ¿Terminado?`, 'warning');
+                    await enviarNotificacion(cita, '⚠️ Recordatorio de cita', 
+                        `${cita.nombre} - ${cita.tipo} - ¿Ya ha terminado?`);
+                    cita.notificadaSegundaVez = true;
+                    guardarCitas();
+                }
+            }
+
+            renderizarTablaCitas();
+        }
+
+        async function enviarNotificacion(cita, titulo, mensaje) {
+            try {
+                log(`Enviando notificación: ${titulo}`, 'info');
+                
+                // Intentar con Service Worker primero (mejor para móviles)
+                if (serviceWorkerRegistration && 'showNotification' in serviceWorkerRegistration) {
+                    await serviceWorkerRegistration.showNotification(titulo, {
+                        body: mensaje,
+                        icon: '📋',
+                        badge: '📋',
+                        vibrate: [200, 100, 200],
+                        requireInteraction: true,
+                        tag: `cita-${cita.id}`
+                    });
+                    log('Notificación enviada via Service Worker', 'success');
+                } else {
+                    // Fallback a notificación normal
+                    const notification = new Notification(titulo, {
+                        body: mensaje,
+                        icon: '📋',
+                        requireInteraction: true,
+                        tag: `cita-${cita.id}`
+                    });
+                    
+                    notification.onclick = () => {
+                        window.focus();
+                        notification.close();
+                    };
+                    log('Notificación enviada (método normal)', 'success');
+                }
+
+                // Reproducir sonido
+                // reproducirSonido();
+                
+            } catch (error) {
+                log('ERROR al enviar notificación: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        function reproducirSonido() {
+            try {
+                log('Reproduciendo sonido...', 'info');
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Crear 3 beeps
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.frequency.value = 800;
+                        oscillator.type = 'square';
+                        
+                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                        
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.2);
+                    }, i * 300);
+                }
+                
+                log('Sonido reproducido', 'success');
+            } catch (error) {
+                log('ERROR al reproducir sonido: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
