@@ -4,8 +4,8 @@
   "description": "Auerdate de recoger al paciente",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#667eea",
-  "theme_color": "#667eea",
+  "background_color": "#6366F1",
+  "theme_color": "#6366F1",
   "orientation": "portrait",
   "icons": [
     {
