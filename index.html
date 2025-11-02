@@ -3,7 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Citas - Terapia Ocupacional</title>
+    <title>Noria - Recoge a tus pacientes</title>
+
+
+<!-- ============================================ -->
+<!-- PWA -->
+<!-- ============================================ -->
+
+<meta name="theme-color" content="#667eea">
+<meta name="description" content="Gestor de citas para terapia ocupacional con notificaciones">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
 
 <!-- Font Awesome Free CDN -->
@@ -786,5 +797,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     </script>
+<script>
+// Registrar Service Worker para PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then((registration) => {
+        console.log('✅ Service Worker registrado:', registration);
+      })
+      .catch((error) => {
+        console.log('⚠️ Error registrando Service Worker:', error);
+      });
+  });
+}
+</script>
 </body>
 </html>
