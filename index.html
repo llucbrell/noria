@@ -230,7 +230,7 @@ TABS -->
             log('Iniciando aplicación...', 'info');
             cargarDatos();
             mostrarFechaHoy();
-            await inicializarServiceWorker();
+            //await inicializarServiceWorker();
             verificarPermisoNotificaciones();
             iniciarMonitoreoNotificaciones();
             actualizarSelectPacientes();
@@ -241,6 +241,7 @@ TABS -->
         });
 
         // Inicializar Service Worker
+        /*
         async function inicializarServiceWorker() {
             if (!('serviceWorker' in navigator)) {
                 log('Service Worker NO soportado en este navegador', 'error');
@@ -265,7 +266,7 @@ TABS -->
             } catch (error) {
                 log('Error registrando Service Worker: ' + error.message, 'error');
             }
-        }
+        }*/
 
         function mostrarFechaHoy() {
             const hoy = new Date();
